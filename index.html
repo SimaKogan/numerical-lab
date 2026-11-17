@@ -1,0 +1,347 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Numerical Lab</title>
+<style>
+:root{--bg:#eef3f6;--p:#fbfdfe;--p2:#e1ebf0;--t:#12263a;--m:#5a7085;--a:#0e8a86;--a2:#b87a00;--ok:#15803d;--ln:#c5d4dd;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0d1821;--p:#142330;--p2:#1c3040;--t:#e6f0f5;--m:#8aa3b5;--a:#4fd1c5;--a2:#f2b84b;--ok:#6ee7a0;--ln:#27415a;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#0d1821;--p:#142330;--p2:#1c3040;--t:#e6f0f5;--m:#8aa3b5;--a:#4fd1c5;--a2:#f2b84b;--ok:#6ee7a0;--ln:#27415a;color-scheme:dark}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);background-image:linear-gradient(var(--ln) 1px,transparent 1px),linear-gradient(90deg,var(--ln) 1px,transparent 1px);background-size:28px 28px;background-attachment:fixed;color:var(--t);font:15px/1.55 Georgia,"Times New Roman",serif}
+.wrap{max-width:1000px;margin:auto;padding:16px}
+header{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+h1{margin:0;font:700 30px/1 Georgia,serif;letter-spacing:-.5px}h1 i{color:var(--a)}
+.seg,nav{display:flex;gap:6px;flex-wrap:wrap}nav{margin-top:12px}
+button,input,select,textarea{font:14px system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--t);background:var(--p);border:1px solid var(--ln);border-radius:6px;padding:7px 11px}
+button{cursor:pointer}button:hover{border-color:var(--a)}
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--a2);outline-offset:1px}
+button.on{background:var(--a);color:var(--bg);border-color:var(--a);font-weight:600}
+.sec{display:none;background:var(--p);border:1px solid var(--ln);border-radius:8px;padding:14px;margin-top:12px}.sec.on{display:block}
+.ctl{display:flex;gap:10px;flex-wrap:wrap;align-items:end}.ctl label{display:flex;flex-direction:column;font:12px system-ui,sans-serif;color:var(--m);gap:3px}.ctl input{width:84px}.ctl input.w{width:230px}
+textarea{width:250px;height:112px;font:13px ui-monospace,Menlo,Consolas,monospace}
+canvas{width:100%;height:320px;display:block;margin-top:10px;background:var(--bg);border-radius:6px;border:1px solid var(--ln)}
+.st{display:flex;gap:6px;align-items:center;margin-top:10px;flex-wrap:wrap}.st input{flex:1;min-width:120px;padding:0}.st span{font:13px system-ui;color:var(--m)}
+.cap{margin:10px 0;padding:10px 12px;border-left:3px solid var(--a2);background:var(--p2);border-radius:0 6px 6px 0}.cap:empty{display:none}
+.out{overflow-x:auto}table{border-collapse:collapse;font:13px ui-monospace,Menlo,Consolas,monospace}td,th{padding:3px 9px;border-bottom:1px solid var(--ln);text-align:right}th{color:var(--m);font-weight:600}tr.cur td{background:var(--p2);color:var(--a)}
+.res{font-weight:700;margin:8px 0;color:var(--ok)}
+.ex{margin-top:12px;padding:12px 14px;border-radius:6px;background:var(--p2);border:1px solid var(--ln)}.ex b{color:var(--a2)}
+@media (max-width:600px){canvas{height:240px}h1{font-size:24px}textarea{width:100%}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style></head><body><div class="wrap">
+<header><h1>Numerical <i>Lab</i></h1><div class="seg" id="lv"><button data-l="0">🧸 Мне 5 лет</button><button data-l="1" class="on">🎒 Мне 15</button><button data-l="2">🎓 Я студент</button></div></header>
+<nav id="tabs"></nav><main id="app"></main></div>
+<script>
+const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)],V=id=>$('#'+id).value;
+const C=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const fm=v=>!isFinite(v)?'∞':(Math.abs(v)>=1e7||(v!==0&&Math.abs(v)<1e-5))?v.toExponential(3):String(+v.toFixed(6));
+let L=1,cur='roots';
+/* ---------- парсер функций ---------- */
+const OK={sin:1,cos:1,tan:1,exp:1,sqrt:1,abs:1,atan:1},AL={tg:'tan',ln:'log',lg:'log10',pi:'PI',e:'E',arctg:'atan'};
+function mk(s){
+ if(!/^[\w\s+\-*/().,^]*$/.test(s))throw Error('недопустимый символ');
+ s=s.replace(/[a-zA-Z_]\w*/g,w=>w=='x'?w:AL[w]||(OK[w]?w:(()=>{throw Error('неизвестно «'+w+'»')})()));
+ s=s.replace(/\^/g,'**').replace(/(^|[^\w.])(\d+\.?\d*)\s*(?=[a-zA-Z(])/g,'$1$2*').replace(/\)\s*(?=[a-zA-Z(\d])/g,')*').replace(/\bx\s*\(/g,'x*(').replace(/^\s*-/,'0-');
+ const f=new Function('x','with(Math){return '+s+'}');f(1);return x=>f(x)}
+const D1=(f,x,h=1e-5)=>(f(x+h)-f(x-h))/(2*h),D2=(f,x,h=1e-3)=>(f(x+h)-2*f(x)+f(x-h))/(h*h);
+/* ---------- рисование ---------- */
+function view(cv,xr,fs,o={}){
+ const r=devicePixelRatio||1,w=cv.clientWidth,h=cv.clientHeight;cv.width=w*r;cv.height=h*r;
+ const g=cv.getContext('2d');g.setTransform(r,0,0,r,0,0);
+ let fy=[];fs.forEach(f=>{for(let i=0;i<=240;i++){const y=f(xr[0]+(xr[1]-xr[0])*i/240);if(isFinite(y)&&Math.abs(y)<1e9)fy.push(y)}});
+ fy.sort((p,q)=>p-q);let lo=Infinity,hi=-Infinity;
+ if(fy.length){lo=fy[Math.floor(fy.length*.02)];hi=fy[Math.ceil(fy.length*.98)-1]}
+ (o.ys||[]).concat(o.z===false?[]:[0]).forEach(y=>{lo=Math.min(lo,y);hi=Math.max(hi,y)});
+ if(!isFinite(lo)){lo=-1;hi=1}if(hi-lo<1e-12){lo-=1;hi+=1}const p=(hi-lo)*.08;lo-=p;hi+=p;
+ const X=x=>42+(x-xr[0])/(xr[1]-xr[0])*(w-54),Y=y=>h-22-(y-lo)/(hi-lo)*(h-34),ln=C('--ln'),mu=C('--m');
+ g.font='11px system-ui';g.lineWidth=1;
+ for(let i=0;i<=6;i++){const x=xr[0]+(xr[1]-xr[0])*i/6;g.strokeStyle=ln;g.beginPath();g.moveTo(X(x),8);g.lineTo(X(x),h-22);g.stroke();g.fillStyle=mu;g.textAlign='center';g.fillText(fm(+x.toPrecision(3)),X(x),h-8)}
+ for(let i=0;i<=4;i++){const y=lo+(hi-lo)*i/4;g.strokeStyle=ln;g.beginPath();g.moveTo(42,Y(y));g.lineTo(w-12,Y(y));g.stroke();g.fillStyle=mu;g.textAlign='right';g.fillText(fm(+y.toPrecision(3)),38,Y(y)+4)}
+ g.strokeStyle=mu;g.lineWidth=1.5;
+ if(lo<0&&hi>0){g.beginPath();g.moveTo(42,Y(0));g.lineTo(w-12,Y(0));g.stroke()}
+ if(xr[0]<0&&xr[1]>0){g.beginPath();g.moveTo(X(0),8);g.lineTo(X(0),h-22);g.stroke()}
+ const v={g,X,Y,w,h,xr,lo,hi,ix:px=>xr[0]+(px-42)/(w-54)*(xr[1]-xr[0]),iy:py=>lo+(h-22-py)/(h-34)*(hi-lo)};cv._v=v;return v}
+function curve(v,f,col,lw=2,dash=[]){const g=v.g,R=(v.hi-v.lo)*3;g.beginPath();g.strokeStyle=col;g.lineWidth=lw;g.setLineDash(dash);let pen=0;
+ for(let i=0;i<=400;i++){const x=v.xr[0]+(v.xr[1]-v.xr[0])*i/400,y=f(x);if(!isFinite(y)||y<v.lo-R||y>v.hi+R){pen=0;continue}pen?g.lineTo(v.X(x),v.Y(y)):g.moveTo(v.X(x),v.Y(y));pen=1}g.stroke();g.setLineDash([])}
+function seg(v,x1,y1,x2,y2,col,lw=1.5,dash=[]){const g=v.g;g.beginPath();g.strokeStyle=col;g.lineWidth=lw;g.setLineDash(dash);g.moveTo(v.X(x1),v.Y(y1));g.lineTo(v.X(x2),v.Y(y2));g.stroke();g.setLineDash([])}
+function dot(v,x,y,col,r=4){v.g.beginPath();v.g.fillStyle=col;v.g.arc(v.X(x),v.Y(y),r,0,7);v.g.fill()}
+function poly(v,ys,col,k){const g=v.g;g.beginPath();g.strokeStyle=col;g.lineWidth=2;ys.slice(0,k+1).forEach((y,i)=>i?g.lineTo(v.X(i+v.xr[0]),v.Y(y)):g.moveTo(v.X(v.xr[0]),v.Y(y)));g.stroke();ys.slice(0,k+1).forEach((y,i)=>dot(v,i+v.xr[0],y,col,i==k?5:2.5))}
+const tbl=(hd,rows,c)=>'<table><tr>'+hd.map(h=>'<th>'+h+'</th>').join('')+'</tr>'+rows.map((r,i)=>'<tr'+(i==c?' class=cur':'')+'>'+r.map(x=>'<td>'+(typeof x=='number'?fm(x):x)+'</td>').join('')+'</tr>').join('')+'</table>';
+/* ---------- пошаговый плеер ---------- */
+function Stepper(el,cb){
+ el.innerHTML='<button data-k="f" title="В начало">⏮</button><button data-k="-" title="Назад">◀</button><input type="range" min="0" max="0" value="0" aria-label="Шаг"><button data-k="+" title="Вперёд">▶</button><button data-k="a">⏯ Авто</button><span></span>';
+ const r=el.querySelector('input'),sp=el.querySelector('span');let tm=0;
+ const upd=()=>{sp.textContent='шаг '+(+r.value+1)+' из '+(+r.max+1);cb(+r.value)},stop=()=>{clearInterval(tm);tm=0};
+ r.oninput=()=>{stop();upd()};
+ el.onclick=e=>{const k=e.target.dataset.k;if(!k)return;const v=+r.value,m=+r.max;
+  if(k=='a'){if(tm)return stop();if(v>=m)r.value=0;tm=setInterval(()=>{if(+r.value>=+r.max)return stop();r.value=+r.value+1;upd()},700);upd();return}
+  stop();r.value=k=='f'?0:k=='-'?Math.max(0,v-1):Math.min(m,v+1);upd()};
+ return{set(n,md){stop();r.max=Math.max(n,1)-1;r.value=md==1?r.max:md==2?Math.min(+r.value,r.max):0;upd()}}}
+/* ---------- объяснения на трёх уровнях ---------- */
+const NM={bis:'бисекция',chord:'метод хорд',newton:'метод Ньютона',comb:'комбинированный метод',lag:'многочлен Лагранжа',newt:'формула Ньютона (разделённые разности)',aitk:'схема Эйткена',rect:'прямоугольники',trap:'трапеции',simp:'Симпсон',n38:'Ньютон «трёх восьмых»',gau:'Гаусс (3 узла)',gauss:'метод Гаусса',jac:'метод итераций (Якоби)',seid:'метод Зейделя',power:'степенной метод',lev:'метод Леверрье',gp:'формула Гаусса вперёд',gm:'формула Гаусса назад',st:'формула Стирлинга',be:'формула Бесселя',cheb:'формула Чебышева',iter:'метод итераций',lob:'метод Лобачевского',kry:'метод Крылова',ortho:'метод ортогонализации',desc:'скорейший спуск',err:'теория погрешностей'};
+const E={
+bis:['Ты спрятал игрушку в коридоре, а я угадываю. Я всё время делю коридор пополам и спрашиваю: «Она в этой половинке?» — пока не найду!','Берём отрезок, на концах которого функция имеет разные знаки, делим пополам и оставляем ту половину, где знак всё ещё меняется. Каждый шаг вдвое сужает отрезок: надёжно, но не быстро.','f непрерывна, f(a)f(b)<0 ⇒ корень существует. Линейная сходимость: |x*−xₙ| ≤ (b−a)/2ⁿ⁺¹, число шагов n ≥ log₂((b−a)/ε). Производные не нужны.'],
+chord:['Представь горку и верёвочку, натянутую между двумя её точками. Там, где верёвочка касается земли, мы уже ближе к месту, где земли касается горка. Натягиваем новую верёвочку — ещё ближе!','Проводим хорду через (a,f(a)) и (b,f(b)); её пересечение с осью X — новое приближение. Один конец хорды остаётся на месте, второй подтягивается к корню.','xₙ₊₁ = xₙ − f(xₙ)(c−xₙ)/(f(c)−f(xₙ)), c — неподвижный конец: f(c)f″(c)>0. Сходимость линейная; |x*−xₙ| ≤ (M₁−m₁)/m₁·|xₙ₊₁−xₙ|.'],
+newton:['Ты катишься на самокате по склону. Склон мы заменяем ровной линейкой и едем по ней до земли. Потом смотрим на новую линейку — и снова едем. Каждый раз всё ближе!','В точке xₙ проводим касательную к графику; где она пересекает ось X — там xₙ₊₁. Метод очень быстрый: число верных цифр примерно удваивается с каждым шагом.','xₙ₊₁ = xₙ − f(xₙ)/f′(xₙ), x₀ выбирают из условия f(x₀)f″(x₀)>0. Квадратичная сходимость при f′≠0. Контроль: |xₙ₊₁−xₙ| < √(2m₁ε/M₂).'],
+comb:['Два друга идут к кладу с двух сторон: один по верёвочке, другой по склону. Они сходятся всё ближе, а клад всегда зажат между ними!','Хорды дают приближение с одной стороны, касательные — с другой. Корень всегда зажат между ними, а расстояние между приближениями прямо показывает точность.','При знакопостоянных f′, f″: x̲ₙ₊₁ строим хордой, x̄ₙ₊₁ — касательной из конца, где f·f″>0. Останов при |x̄ₙ−x̲ₙ|<ε, ответ ½(x̲+x̄).'],
+lag:['У тебя есть несколько гвоздиков в доске. Мы делаем гибкую проволочку, которая проходит через все гвоздики. Каждая её часть «держится» за свой гвоздик и не мешает остальным.','Для каждой точки строим «горб» Φₖ(x): он равен 1 в своей точке и 0 во всех остальных. Умножаем на yₖ и складываем — получаем многочлен, проходящий через все точки.','L(x)=Σ f(xₖ)·ω(x)/((x−xₖ)ω′(xₖ)). Остаток R(x)=f⁽ⁿ⁺¹⁾(ξ)/(n+1)!·ω(x), |R| ≤ Mₙ₊₁/(n+1)!·|ω(x)|. При добавлении узла всё пересчитывается заново.'],
+newt:['Сначала проводим прямую линию через первый гвоздик, потом чуть-чуть изгибаем её, чтобы зацепить второй, потом ещё — как лепим из пластилина, по одному гвоздику за раз.','Многочлен строится по шагам: к прежнему добавляем одно слагаемое с разделённой разностью. Старые узлы заново не пересчитываем — в этом и красота метода.','N(x)=f(x₀)+f(x₀;x₁)(x−x₀)+…+f(x₀;…;xₙ)Πᵢ(x−xᵢ). Разделённые разности линейны и симметричны; при равных шагах f(xₖ;…;xₖ₊ₘ)=Δᵐfₖ/(hᵐm!). Тот же многочлен, что у Лагранжа.'],
+aitk:['Как турнир: соседние гвоздики «играют» парами, победитель каждой пары играет дальше. В конце остаётся одно число — наш ответ!','Схема Эйткена находит значение в точке x* без построения самого многочлена: из значений для пар узлов получаем значения для троек, потом для четвёрок и т. д.','φ₍ₖ..ₘ₊₁₎(x)=[φ₍ₖ₊₁..ₘ₊₁₎(x)(x−xₖ)−φ₍ₖ..ₘ₎(x)(x−xₘ₊₁)]/(xₘ₊₁−xₖ). Узлы упорядочивают по |xₖ−x*|; |φⱼ₊₁−φⱼ|≤ε — оценка погрешности.'],
+rect:['Хотим узнать, сколько краски нужно, чтобы закрасить фигуру под горкой. Режем её на столбики и считаем каждый как коробку!','Режем площадь на узкие прямоугольники, высота каждого — значение функции в середине. Складываем площади. Чем тоньше полоски, тем точнее.','∫ ≈ h·Σ f(a+(k+½)h), R=(b−a)³/(24m²)·f″(η). Порядок точности O(h²); точна для линейных функций.'],
+trap:['Вместо коробок берём «трапеции»: у каждого столбика сверху наклонная крыша. Так закрашиваем фигуру точнее!','Соединяем соседние точки графика отрезками и считаем площади трапеций: h·(f₀+f₁)/2.','h(y₀/2+Σyᵢ+yₘ/2), R=−(b−a)³/(12m²)·f″(η). При f″>0 значение завышено. Порядок O(h²).'],
+simp:['Теперь крыша у каждого столбика — настоящая дуга, как мостик. Мостик почти точно повторяет горку!','Через три точки (края и середину) проводим параболу и считаем площадь под ней: h/6·(f₀+4f₁+f₂).','R=−(1/90)((b−a)/2)⁵f⁽⁴⁾(η); обобщённая: −(b−a)h⁴/180·f⁽⁴⁾. Точна для многочленов до 3-й степени; порядок O(h⁴).'],
+n38:['Теперь каждый столбик стоит на четырёх опорах-гвоздиках, а верхушка — плавная волна.','Формула «трёх восьмых»: через 4 точки проводим кубическую кривую; веса 1, 3, 3, 1: H/8·(f₀+3f₁+3f₂+f₃).','Ньютон–Котес при n=3: R=−(b−a)⁵/6480·f⁽⁴⁾(η). Порядок O(h⁴), точна до 3-й степени; число узлов обязательно 3m+1.'],
+gau:['Умный способ: смотрим не на края столбика, а на самые «важные» места внутри. Смотрим реже — а ответ точнее!','Узлы подобраны хитро (неравномерно), чтобы при том же числе вычислений точность была максимальной. Здесь по 3 узла на каждый кусок.','Гаусс с n узлами точен для многочленов степени 2n−1. При n=3: t=0, ±√0,6; веса 8/9 и 5/9. Замена x=(b+a)/2+(b−a)/2·t.'],
+gauss:['Это головоломка сразу с несколькими загадками. Мы по очереди стираем лишнее, пока не останется простая: «x = число», а потом отгадываем остальные по цепочке.','Прямой ход: вычитаем одно уравнение из других, чтобы обнулить числа под диагональю. Потом обратный ход — находим неизвестные с конца. Выбор главного элемента уменьшает ошибки округления.','aᵢⱼ⁽ᵏ⁺¹⁾=aᵢⱼ⁽ᵏ⁾−aᵢₖ⁽ᵏ⁾aₖⱼ⁽ᵏ⁾/aₖₖ⁽ᵏ⁾; ≈ n³/3 операций, против (n!·n) у правила Крамера. С выбором главного элемента — устойчивее.'],
+jac:['Угадываем ответ «на глаз» и проверяем. Все друзья одновременно поправляют свой кусочек. Повторяем — и ошибка тает!','Из каждого уравнения выражаем свою неизвестную и подставляем значения с прошлого шага. Работает, если на диагонали стоят «главные» (большие по модулю) числа.','xᵢ⁽ᵏ⁺¹⁾=(bᵢ−Σⱼ≠ᵢaᵢⱼxⱼ⁽ᵏ⁾)/aᵢᵢ. Сходится при ‖α‖<1 (например, при диагональном преобладании); |x*−xₙ| ≤ q/(1−q)·|xₙ−xₙ₋₁|.'],
+seid:['Как в прошлый раз, но друзья говорят новости сразу: кто уже поправил свой ответ, тут же сообщает остальным. Поэтому быстрее!','Как метод итераций, но новые значения используются сразу, в том же шаге. Обычно сходится быстрее.','xᵢ⁽ᵏ⁾=Σⱼ<ᵢαᵢⱼxⱼ⁽ᵏ⁾+Σⱼ>ᵢαᵢⱼxⱼ⁽ᵏ⁻¹⁾+βᵢ. Достаточные условия сходимости те же; часто в разы быстрее Якоби.'],
+power:['Умножаем снова и снова — и самая сильная «сила» матрицы побеждает остальные. Остаётся главный ответ: во сколько раз матрица растягивает вектор.','Берём любой вектор, много раз умножаем на A и нормируем. Вектор разворачивается вдоль главного направления, а отношение компонент даёт λ.','y⁽ᵏ⁾=Aᵏy⁽⁰⁾≈c₁λ₁ᵏx⁽¹⁾; λ₁≈yⱼ⁽ᵏ⁺¹⁾/yⱼ⁽ᵏ⁾ с ошибкой O(|λ₂/λ₁|ᵏ). Нормировка защищает от переполнения. Нужно |λ₁|>|λ₂|.'],
+lev:['У матрицы есть секретный числовой ключ — многочлен. Считаем «следы» (суммы по диагонали) её степеней, и ключ собирается сам. Корни ключа — ответы.','Считаем Sₖ=tr(Aᵏ) и по формулам Ньютона находим коэффициенты характеристического многочлена. Его корни — собственные значения.','Sₖ=trAᵏ=Σλᵢᵏ; Pₖ=(Sₖ−Sₖ₋₁P₁−…−S₁Pₖ₋₁)/k; D(λ)=λⁿ−P₁λⁿ⁻¹−…−Pₙ. Корни ищем методом Дюрана–Кернера.'],
+gp:['Ты на ступеньке лестницы и хочешь узнать высоту чуть правее. Смотрим, как меняется высота от ступеньки к ступеньке, и идём вперёд.','Для x* правее узла x₀ берём конечные разности Δᵏf и узлы x₀, x₁, x₋₁, x₂, x₋₂…: добавляем слагаемые по одному, ответ уточняется.','G⁺(x₀+ht)=f₀+tΔf₀+t(t−1)/2!·Δ²f₋₁+(t+1)t(t−1)/3!·Δ³f₋₁+…; узлы равноотстоящие, x* справа от x₀. Остаток: f⁽²ᵏ⁺¹⁾(ξ)/(2k+1)!·t(t²−1)…(t²−k²).'],
+gm:['То же, но смотрим назад: спускаемся по лестнице к ступенькам слева.','Формула Гаусса «назад»: узлы в порядке x₀, x₋₁, x₁, x₋₂, …; подходит, когда x* слева от x₀.','G⁻(x₀+ht)=f₀+tΔf₋₁+t(t+1)/2!·Δ²f₋₁+t(t²−1)/3!·Δ³f₋₂+…; x* левее x₀, в середине таблицы.'],
+st:['Стоим посередине лестницы и берём среднее из того, что видно слева и справа. Ответ получается очень ровным!','Формула Стирлинга — среднее двух формул Гаусса. Лучше всего работает, когда x* близка к узлу в середине таблицы (|t| ≲ 0,5).','S(x₀+ht)=f₀+t(Δf₋₁+Δf₀)/2+t²/2!·Δ²f₋₁+t(t²−1)/3!·(Δ³f₋₂+Δ³f₋₁)/2+t²(t²−1)/4!·Δ⁴f₋₂+…'],
+be:['Точка где-то между двумя ступеньками. Берём среднюю высоту этих ступенек и поправляем, добавляя наклоны и изгибы.','Формула Бесселя — для точки посередине между двумя узлами (0,25 ≤ t ≤ 0,75): начинаем с (f₀+f₁)/2 и добавляем поправки с разностями.','B(x₀+ht)=(f₀+f₁)/2+(t−½)Δf₀+t(t−1)/2!·(Δ²f₋₁+Δ²f₀)/2+(t−½)t(t−1)/3!·Δ³f₋₁+…; при t=½ нечётные члены равны нулю.'],
+cheb:['В нескольких хитро выбранных местах смотрим высоту горки и просто усредняем — как раздать всем одинаковые монетки.','Формула Чебышева: все веса одинаковые (2/n), а узлы подобраны специально. Берём среднее значение функции в узлах и умножаем на длину отрезка.','∫₋₁¹f≈(2/n)Σf(tᵢ); точна для многочленов до степени n включительно (n нечётное). Замена x=(b+a)/2+(b−a)/2·t. Здесь n=5 узлов на каждую часть.'],
+iter:['Играем в «эхо»: говорим число, слышим ответ и повторяем его. Если эхо с каждым разом ближе к одному месту — это и есть корень!','Пишем уравнение как x=φ(x) и повторяем xₙ₊₁=φ(xₙ). На графике это «паутинка» между кривой φ и прямой y=x. Сходится, если наклон φ по модулю меньше 1.','xₙ₊₁=φ(xₙ), φ=x−f(x)/C, sign C=sign f′, |C|>M₁/2. Сходимость при |φ′|≤q<1; |x*−xₙ| ≤ q/(1−q)·|xₙ−xₙ₋₁|.'],
+lob:['Много раз возводим всё в квадрат: большие числа становятся огромными, маленькие — крошечными, и их легко различить.','Метод Лобачевского (Греффе): многочлен «квадрируем», корни возводятся в степень 2ᵏ и разбегаются по величине. Потом берём корень степени 2ᵏ из отношений коэффициентов.','aⱼ⁽ⁱ⁺¹⁾=(aⱼ⁽ⁱ⁾)²−2aⱼ₋₁aⱼ₊₁+2aⱼ₋₂aⱼ₊₂−…; если aⱼ⁽ⁱ⁺¹⁾≈(aⱼ⁽ⁱ⁾)², корни вещественные и различные: |xⱼ|≈(aⱼ/aⱼ₋₁)^(1/2ᵏ), знаки — подстановкой.'],
+kry:['Берём стрелочку и много раз «толкаем» её матрицей. По тому, как стрелочки связаны друг с другом, раскрываем секретное число-ключ матрицы.','Метод Крылова: строим векторы y⁽ᵏ⁾=Ay⁽ᵏ⁻¹⁾ и ищем, как y⁽ⁿ⁾ выражается через предыдущие. Эти коэффициенты — коэффициенты характеристического многочлена.','y⁽ⁿ⁾=q₁y⁽ⁿ⁻¹⁾+…+qₙy⁽⁰⁾; D(λ)=λⁿ−q₁λⁿ⁻¹−…−qₙ. Собственные векторы: x⁽ⁱ⁾=y⁽ⁿ⁻¹⁾+β₁ᵢy⁽ⁿ⁻²⁾+…, βⱼᵢ=λᵢβⱼ₋₁,ᵢ−qⱼ.'],
+ortho:['Строим «вежливые» стрелочки: каждая не мешает предыдущим. Ответ складывается из них по кусочкам, как из кубиков.','Метод ортогонализации: строим векторы x⁽ᵏ⁾ с условием (Ax⁽ᵏ⁾,x⁽ˡ⁾)=0 при k>l. Решение раскладываем по ним: X=Σαₖx⁽ᵏ⁾, коэффициенты находим по очереди.','x⁽ᵏ⁺¹⁾=y⁽ᵏ⁺¹⁾+Σβᵢx⁽ⁱ⁾ (треугольная система для β); Σₖ≤ₗαₖ(Ax⁽ᵏ⁾,x⁽ˡ⁾)=(B,x⁽ˡ⁾). Точное решение за n шагов (без округлений).'],
+desc:['Катимся на санках в долину: на каждом шаге выбираем самый крутой спуск и едем, пока не начнёт подниматься. Дно долины — наш ответ!','Решение — дно «чаши». Каждый шаг идём по невязке r=b−Ax на оптимальную длину шага. Для несимметричной A решаем AᵀAx=Aᵀb.','x⁽ᵏ⁺¹⁾=x⁽ᵏ⁾+αr⁽ᵏ⁾, α=(r,r)/(Ar,r) для симметричной положительно определённой A; для общей A — нормальная система. Сходимость линейная, зависит от обусловленности.'],
+err:['Линейкой мы измеряем «примерно» и записываем, насколько могли ошибиться. И ещё: если складывать мелочи в правильном порядке, ошибок будет меньше!','Абсолютная погрешность Δ — насколько число может отличаться от точного; относительная δ=Δ/|a| (в %). Верные цифры — те, где погрешность не больше единицы разряда. Порядок вычислений тоже влияет на точность.','|A−a|≤Δ(a), δ=Δ/|a|; цифра aₘ верна, если Δ≤ω·10^(k−m). Прямая задача: Δ(y)=Σ|∂f/∂xᵢ|Δxᵢ; обратная (равных влияний): Δxᵢ=Δy/(n|∂ᵢf|). Сумма 1/k² «вперёд» копит ошибку ≈n·t, «назад» — нет.']};
+const ex=(p,k)=>{$('#'+p+'_x').innerHTML='<b>'+['🧸 Как для 5-летнего','🎒 Для 15 лет','🎓 Для студента'][L]+' · '+NM[k]+'</b><br>'+E[k][L]};
+/* ---------- вкладка «Корни» ---------- */
+let RS=[],RH=[],RR={};
+function rootsRun(md){
+ const out=$('#r_o');let f;RS=[];
+ if(V('r_m')=='lob')return lobRun(md);if(/^[\d\s.+-]+$/.test(V('r_f')))$('#r_f').value='x^4-x^3-2*x^2+3*x-3';try{f=mk(V('r_f'))}catch(e){out.textContent='Ошибка в функции: '+e.message;return}
+ const a0=+V('r_a'),b0=+V('r_b'),eps=+V('r_e')||1e-3,m=V('r_m');let a=a0,b=b0,hd,root,msg;
+ const pad=(b0-a0)*.15;RR={f,xr:[a0-pad,b0+pad]};ex('r',m);
+ if(!(a0<b0)||f(a0)*f(b0)>0){RR.msg='На концах отрезка нужны разные знаки f и a<b. Сдвинь границы по графику.';RH=[];ST.r.set(1,0);return}
+ const d2=x=>D2(f,x);
+ if(m=='bis'){hd=['n','a','b','m','f(m)','b−a'];
+  for(let n=1;n<80;n++){const mm=(a+b)/2,fv=f(mm),lf=f(a)*fv<=0;
+   S0({row:[n,a,b,mm,fv,b-a],band:[a,b],pts:[[mm,0]],cap:[`Клад спрятан где-то между ${fm(a)} и ${fm(b)}. Смотрим ровно в середину — ${fm(mm)} — и выбрасываем половину, где клада точно нет!`,`Середина m=${fm(mm)}. Знак f меняется на ${lf?'левой':'правой'} половине — оставляем её. Отрезок станет ${fm((b-a)/2)}.`,`f(a)f(m)${lf?'≤0 ⇒ b:=m':'>0 ⇒ a:=m'}; длина (b−a)/2ⁿ=${fm(b-a)}; |x*−m| ≤ ${fm((b-a)/2)}.`]});
+   lf?b=mm:a=mm;if(b-a<eps)break}
+  root=(a+b)/2}
+ else if(m=='chord'){hd=['n','xₙ','c','f(xₙ)','xₙ₊₁','|Δ|'];const fx=f(a)*d2(a)>0,c=fx?a:b;let x=fx?b:a;
+  for(let n=1;n<80;n++){const xn=x-f(x)*(c-x)/(f(c)-f(x)),dl=Math.abs(xn-x);if(!isFinite(xn))break;
+   S0({row:[n,x,c,f(x),xn,dl],lines:[[x,f(x),c,f(c)]],pts:[[x,f(x)],[c,f(c)],[xn,0]],cap:[`Натягиваем верёвочку между точками на горке (${fm(x)} и ${fm(c)}). Где верёвочка касается земли — там ${fm(xn)}. Это уже ближе!`,`Хорда через (${fm(x)}; ${fm(f(x))}) и (${fm(c)}; ${fm(f(c))}) пересекает ось X в ${fm(xn)}.`,`xₙ₊₁=${fm(xn)}, |Δ|=${fm(dl)}; c=${fm(c)} неподвижен, f(c)f″(c)>0.`]});
+   x=xn;if(dl<eps)break}
+  root=x}
+ else if(m=='newton'){hd=['n','xₙ','f(xₙ)','f′(xₙ)','xₙ₊₁','|Δ|'];let x=f(a)*d2(a)>0?a:b;
+  for(let n=1;n<80;n++){const dv=D1(f,x),xn=x-f(x)/dv,dl=Math.abs(xn-x);if(!isFinite(xn))break;
+   S0({row:[n,x,f(x),dv,xn,dl],lines:[[x,f(x),xn,0]],pts:[[x,f(x)],[xn,0]],cap:[`Стоим на горке в точке ${fm(x)}. Едем по прямой «линейке» вниз до земли — приехали в ${fm(xn)}!`,`Касательная в (${fm(x)}; ${fm(f(x))}) с наклоном ${fm(dv)} пересекает ось в ${fm(xn)}.`,`xₙ₊₁=xₙ−f/f′=${fm(xn)}, |Δ|=${fm(dl)}; квадратичная сходимость.`]});
+   x=xn;if(dl<eps)break}
+  root=x}
+ else if(m=='iter'){hd=['n','xₙ','φ(xₙ)','|Δ|','|φ′|'];let M1=0;for(let i=0;i<=200;i++)M1=Math.max(M1,Math.abs(D1(f,a0+(b0-a0)*i/200)));
+  const C=(D1(f,(a0+b0)/2)<0?-1:1)*M1,ph=x=>x-f(x)/C;let x=(a0+b0)/2;RR.phi=ph;
+  for(let n=1;n<200;n++){const xn=ph(x),dl=Math.abs(xn-x),q=Math.abs(D1(ph,x));if(!isFinite(xn))break;
+   S0({row:[n,x,xn,dl,q],cob:[x,xn],cap:[`Сказали ${fm(x)} — «эхо» ответило ${fm(xn)}. Эхо ближе к тихому месту!`,`xₙ₊₁=φ(xₙ)=${fm(xn)}, |Δ|=${fm(dl)}. Паутинка закручивается к пересечению φ и y=x.`,`C=${fm(C)}, q≈|φ′|=${fm(q)}<1; |x*−xₙ₊₁| ≲ q/(1−q)·${fm(dl)}.`]});x=xn;if(dl<eps)break}
+  root=x}
+ else{hd=['n','x̲','x̄','хорда','касат.','x̄−x̲'];
+  for(let n=1;n<60;n++){const c=a-f(a)*(b-a)/(f(b)-f(a)),e=f(a)*d2(a)>0?a:b,t=e-f(e)/D1(f,e);if(!isFinite(c+t))break;const w=Math.abs(c-t);
+   S0({row:[n,a,b,c,t,b-a],band:[a,b],lines:[[a,f(a),b,f(b)],[e,f(e),t,0]],pts:[[c,0],[t,0]],cap:[`Один друг пришёл по верёвочке в ${fm(c)}, другой по склону — в ${fm(t)}. Клад между ними!`,`Хорда даёт ${fm(c)}, касательная — ${fm(t)}. Корень зажат между ними, ширина ${fm(w)}.`,`x̲=${fm(c)}, x̄=${fm(t)}; |x̄−x̲|=${fm(w)}${w<eps?'<ε ⇒ ответ ½(x̲+x̄)':''}.`]});
+   a=Math.min(c,t);b=Math.max(c,t);if(b-a<eps)break}
+  root=(a+b)/2}
+ function S0(s){RS.push(s)}
+ RH=hd;RR.msg=`Корень ≈ ${fm(root)}, f(корня) ≈ ${fm(f(root))}, шагов: ${RS.length}`;ST.r.set(RS.length,md)}
+function rootsDraw(i){
+ if(!RR.f)return;if(RR.phi){const v=view($('#r_c'),RR.xr,[RR.phi,x=>x],{z:false});curve(v,x=>x,C('--m'),1.5);curve(v,RR.phi,C('--a'),2.5);RS.slice(0,i+1).forEach((q,k)=>{const[x,y]=q.cob;seg(v,x,x,x,y,C('--a2'),k==i?2.5:1);seg(v,x,y,y,y,C('--a2'),k==i?2.5:1)});$('#r_cap').textContent=RS[i]?RS[i].cap[L]:'';$('#r_o').innerHTML=tbl(RH,RS.slice(0,i+1).map(r=>r.row),i)+'<div class="res">'+RR.msg+'</div>';return}
+ const v=view($('#r_c'),RR.xr,[RR.f]),g=v.g,s=RS[i];
+ if(s&&s.band){g.fillStyle=C('--a2')+'30';g.fillRect(v.X(s.band[0]),8,v.X(s.band[1])-v.X(s.band[0]),v.h-30)}
+ curve(v,RR.f,C('--a'),2.5);
+ if(s){(s.lines||[]).forEach(l=>seg(v,...l,C('--a2'),2));(s.pts||[]).forEach(p=>dot(v,p[0],p[1],C('--a2'),5));RS.slice(0,i).forEach(q=>{const p=q.pts[q.pts.length-1];p&&dot(v,p[0],0,C('--m'),2.5)})}
+ $('#r_cap').textContent=s?s.cap[L]:'';
+ $('#r_o').innerHTML=(s?tbl(RH,RS.slice(0,i+1).map(r=>r.row),i):'')+'<div class="res">'+(RR.msg||'')+'</div>'}
+/* ---------- вкладка «Интерполяция» ---------- */
+let IP={};
+function interpRun(md){
+ const o=$('#i_o'),m=V('i_m'),xv=+V('i_x');ex('i',m);if(['gp','gm','st','be'].includes(m))return eqRun(md);
+ const P=V('i_p').trim().split('\n').map(l=>l.trim().split(/[\s;,]+/).map(Number)).filter(r=>r.length>1&&r.every(isFinite)).sort((p,q)=>p[0]-q[0]);
+ const xs=P.map(p=>p[0]),ys=P.map(p=>p[1]),n=xs.length;
+ if(n<2||xs.some((x,i)=>i&&x==xs[i-1])){IP={};o.textContent='Нужно минимум 2 точки с разными x (по одной в строке: x y).';ST.i.set(1,0);return}
+ const dd=[ys.slice()];for(let j=1;j<n;j++)dd[j]=dd[j-1].slice(1).map((v,i)=>(v-dd[j-1][i])/(xs[i+j]-xs[i]));
+ const nw=(k,x)=>{let s=0,p=1;for(let i=0;i<=k;i++){s+=dd[i][0]*p;p*=x-xs[i]}return s};
+ const lt=(i,x)=>{let p=ys[i];for(let j=0;j<n;j++)if(j!=i)p*=(x-xs[j])/(xs[i]-xs[j]);return p};
+ const ls=(k,x)=>{let s=0;for(let i=0;i<=k;i++)s+=lt(i,x);return s};
+ const sp=xs[n-1]-xs[0],od=xs.map((_,i)=>i).sort((p,q)=>Math.abs(xs[p]-xv)-Math.abs(xs[q]-xv)),xo=od.map(i=>xs[i]),T=[od.map(i=>ys[i])];
+ for(let j=1;j<n;j++)T[j]=T[j-1].slice(0,n-j).map((_,i)=>(T[j-1][i+1]*(xv-xo[i])-T[j-1][i]*(xv-xo[i+j]))/(xo[i+j]-xo[i]));
+ const val=nw(n-1,xv),h0=Array.from({length:n},(_,j)=>j?'Δ'+j:'f');
+ let tb;
+ if(m=='lag')tb=tbl(['k','xₖ','f(xₖ)','fₖΦₖ(x*)'],xs.map((x,k)=>[k,x,ys[k],lt(k,xv)]));
+ else if(m=='newt')tb=tbl(['xₖ',...h0.map(h=>h=='f'?'f':'разд. разн. '+h.slice(1))],xs.map((x,i)=>[x,...dd.map(c=>c[i]===undefined?'':c[i])]));
+ else tb=tbl(['xₖ (по близости к x*)',...h0.map((h,j)=>'φ'+(j?'ⱼ='+j:''))],xo.map((x,i)=>[x,...T.map(c=>c[i]===undefined?'':c[i])]));
+ IP={n,xs,ys,m,xv,nw,lt,ls,xr:[xs[0]-sp*.08,xs[n-1]+sp*.08]};
+ o.innerHTML=tb+`<div class="res">P(${fm(xv)}) ≈ ${fm(val)} · степень многочлена ${n-1}</div>`;ST.i.set(n,md==0?1:md)}
+function interpDraw(i){
+ const q=IP,cv=$('#i_c');if(!q.n){view(cv,[0,1],[]);return}
+ const full=x=>q.nw(q.n-1,x),v=view(cv,q.xr,[full],{ys:q.ys,z:false}),a=C('--a'),a2=C('--a2'),mu=C('--m');
+ curve(v,full,C('--ln'),1.5,[6,4]);let pv;
+ if(q.m=='lag'){for(let k=0;k<i;k++)curve(v,x=>q.lt(k,x),mu,1);curve(v,x=>q.lt(i,x),a2,1.8,[5,4]);curve(v,x=>q.ls(i,x),a,2.5);pv=q.ls(i,q.xv)}
+ else{if(i>0)curve(v,x=>q.nw(i-1,x),mu,1.2);curve(v,x=>q.nw(i,x),a,2.5);pv=q.nw(i,q.xv)}
+ q.xs.forEach((x,k)=>dot(v,x,q.ys[k],k<=i?a2:mu,5));
+ seg(v,q.xv,v.lo,q.xv,v.hi,a2,1,[3,3]);dot(v,q.xv,pv,a2,5);
+ $('#i_cap').textContent=q.m=='lag'?['Каждая тонкая линия — кусочек, который держится за свой гвоздик. Складываем кусочки — получаем проволочку!','Слагаемое k='+i+': yₖΦₖ(x). Жирная кривая — сумма слагаемых 0…'+i+'; к последнему шагу она проходит через все точки.','Σₖ≤'+i+' f(xₖ)Φₖ(x); значение в x*: '+fm(pv)+'. Полный многочлен — на последнем шаге.'][L]:['Добавили гвоздик №'+(i+1)+' — проволочка изогнулась, чтобы его зацепить.','Многочлен степени '+i+' через первые '+(i+1)+' узла; значение в x*: '+fm(pv)+'.','N_'+i+'(x*)='+fm(pv)+(i?', поправка '+fm(q.nw(i,q.xv)-q.nw(i-1,q.xv)):'')+' — вклад члена с f(x₀;…;x'+i+').'][L]}
+/* ---------- вкладка «Интегрирование» ---------- */
+let NG={};
+function panels(f,a,b,n,m){const h=(b-a)/n,P=[];for(let k=0;k<n;k++){const x0=a+k*h,x1=x0+h,c=x0+h/2;let xs,val;
+ if(m=='rect'){xs=[c];val=h*f(c)}else if(m=='trap'){xs=[x0,x1];val=h*(f(x0)+f(x1))/2}
+ else if(m=='simp'){xs=[x0,c,x1];val=h*(f(x0)+4*f(c)+f(x1))/6}
+ else if(m=='n38'){xs=[x0,x0+h/3,x0+2*h/3,x1];val=h*(f(xs[0])+3*f(xs[1])+3*f(xs[2])+f(x1))/8}
+ else if(m=='cheb'){xs=[-.832498,-.374541,0,.374541,.832498].map(t=>c+h/2*t);val=h/5*xs.reduce((s,x)=>s+f(x),0)}
+ else{const t=Math.sqrt(.6);xs=[c-h/2*t,c,c+h/2*t];val=h/2*(5*f(xs[0])+8*f(c)+5*f(xs[2]))/9}
+ P.push({x0,x1,xs,val})}return P}
+const sm=P=>P.reduce((s,p)=>s+p.val,0);
+function integRun(md){
+ let f;const o=$('#n_o'),m=V('n_m');ex('n',m);try{f=mk(V('n_f'))}catch(e){NG={};o.textContent='Ошибка в функции: '+e.message;return}
+ const a=+V('n_a'),b=+V('n_b'),n=Math.max(1,Math.min(200,Math.round(+V('n_n')||1)));
+ if(!(a<b)){NG={};o.textContent='Нужно a<b.';return}
+ const P=panels(f,a,b,n,m),I=sm(P),I2=sm(panels(f,a,b,2*n,m)),Ie=sm(panels(f,a,b,400,'gau'));
+ NG={f,a,b,P,ys:[],m,msg:`I ≈ ${fm(I)} · эталон ≈ ${fm(Ie)} · погрешность ${fm(Math.abs(I-Ie))} · по правилу Рунге |Iₙ−I₂ₙ| = ${fm(Math.abs(I-I2))}`};ST.n.set(n,md==0?1:md)}
+function integDraw(i){
+ const q=NG;if(!q.f){view($('#n_c'),[0,1],[]);return}
+ const pad=(q.b-q.a)*.05,v=view($('#n_c'),[q.a-pad,q.b+pad],[q.f]),g=v.g;let run=0;
+ q.P.forEach((p,k)=>{if(k>i)return;run+=p.val;g.beginPath();g.moveTo(v.X(p.x0),v.Y(0));
+  for(let j=0;j<=24;j++){const x=p.x0+(p.x1-p.x0)*j/24;let y=0;p.xs.forEach((xk,l)=>{let t=q.f(xk);p.xs.forEach((xm,u)=>{if(u!=l)t*=(x-xm)/(xk-xm)});y+=t});g.lineTo(v.X(x),v.Y(y))}
+  g.lineTo(v.X(p.x1),v.Y(0));g.closePath();g.fillStyle=C(k==i?'--a2':'--a')+(k==i?'66':'33');g.fill();g.strokeStyle=C('--a');g.lineWidth=1;g.stroke();
+  p.xs.forEach(x=>dot(v,x,q.f(x),C('--t'),2.5))});
+ curve(v,q.f,C('--t'),2);const p=q.P[i];
+ $('#n_cap').textContent=[`Закрасили ещё одну полоску! Всего уже закрашено ${fm(run)}.`,`Полоска ${i+1}: площадь ${fm(p.val)}. Сумма к этому моменту: ${fm(run)}.`,`I_${i+1}=${fm(p.val)}, ΣI=${fm(run)}; узлы на панели: ${p.xs.map(fm).join('; ')}.`][L];
+ let c=0;$('#n_o').innerHTML=tbl(['№','от','до','площадь','сумма'],q.P.slice(0,i+1).map((r,k)=>[k+1,r.x0,r.x1,r.val,c+=r.val]),i)+'<div class="res">'+q.msg+'</div>'}
+/* ---------- вкладка «Системы» ---------- */
+const parseM=t=>t.trim().split('\n').map(l=>l.trim().split(/[\s;,]+/).map(Number));
+function solveG(M){const n=M.length;M=M.map(r=>r.slice());for(let k=0;k<n;k++){let p=k;for(let i=k+1;i<n;i++)if(Math.abs(M[i][k])>Math.abs(M[p][k]))p=i;[M[k],M[p]]=[M[p],M[k]];for(let i=k+1;i<n;i++){const r=M[i][k]/M[k][k];for(let j=k;j<=n;j++)M[i][j]-=r*M[k][j]}}
+ const x=Array(n).fill(0);for(let i=n-1;i>=0;i--){let s=M[i][n];for(let j=i+1;j<n;j++)s-=M[i][j]*x[j];x[i]=s/M[i][i]}return x}
+let SL={};
+function slaeRun(md){
+ const o=$('#s_o'),m=V('s_m'),eps=+V('s_e')||1e-3,M0=parseM(V('s_a')),n=M0.length;ex('s',m);SL={};
+ $('#s_c').style.display=m=='gauss'?'none':'block';
+ if(n<2||n>6||!M0.every(r=>r.length==n+1&&r.every(isFinite))){o.textContent='Нужна расширенная матрица n×(n+1): коэффициенты и свободный член в строке.';ST.s.set(1,0);return}
+ const hd=[...Array.from({length:n},(_,i)=>'x'+(i+1)),'b'],xe=solveG(M0),S=[];
+ if(m=='gauss'){let M=M0.map(r=>r.slice());S.push({k:-1,M:M.map(r=>r.slice()),cap:['Вот наша головоломка. Будем стирать лишнее.','Исходная расширенная матрица.','Исходная система Ax=b, ведущий элемент выбираем по максимуму модуля в столбце.']});
+  for(let k=0;k<n-1;k++){let p=k;for(let i=k+1;i<n;i++)if(Math.abs(M[i][k])>Math.abs(M[p][k]))p=i;const sw=p!=k;[M[k],M[p]]=[M[p],M[k]];
+   for(let i=k+1;i<n;i++){const r=M[i][k]/M[k][k];for(let j=k;j<=n;j++)M[i][j]-=r*M[k][j]}
+   const t=`Столбец ${k+1}: ведущий элемент ${fm(M[k][k])}${sw?' (строки переставлены)':''}; обнуляем всё под ним.`;S.push({k,M:M.map(r=>r.slice()),cap:['Стёрли лишние числа в столбце '+(k+1)+' — головоломка стала проще!',t,t+' mᵢ=aᵢₖ/aₖₖ, строка i ← строка i − mᵢ·строка k.']})}
+  S.push({k:n-1,M:M.map(r=>r.slice()),fin:1,cap:['Теперь отгадываем снизу вверх: последняя загадка самая простая!','Обратный ход: находим xₙ, подставляем в предыдущее уравнение и так до x₁.','xᵢ=(bᵢ−Σⱼ>ᵢaᵢⱼxⱼ)/aᵢᵢ, i=n…1.']});SL={m,hd,S,xe,n}}
+ else if(m=='ortho'){const A=M0.map(r=>r.slice(0,n)),B=M0.map(r=>r[n]),dt=(u,v)=>u.reduce((s,t,i)=>s+t*v[i],0),X=[],al=[],er=x=>Math.max(...x.map((v,i)=>Math.abs(v-xe[i])));
+  for(let k=0;k<n;k++){let y=Array.from({length:n},(_,i)=>+(i==k));
+   if(k){const G=[];for(let j=0;j<k;j++)G.push([...X.map(xi=>dt(mv(A,xi),X[j])),-dt(mv(A,y),X[j])]);const b=solveG(G);y=y.map((v,r)=>v+b.reduce((s,bi,i)=>s+bi*X[i][r],0))}X.push(y)}
+  X.forEach((xl,l)=>{let s=dt(B,xl);for(let k=0;k<l;k++)s-=al[k]*dt(mv(A,X[k]),xl);al.push(s/dt(mv(A,xl),xl))});
+  let sol=Array(n).fill(0);S.push({k:0,x:sol.slice(),dx:0,err:er(sol)});
+  X.forEach((xl,l)=>{const st=xl.map(v=>v*al[l]);sol=sol.map((v,i)=>v+st[i]);S.push({k:l+1,x:sol.slice(),dx:Math.max(...st.map(Math.abs)),err:er(sol),xv:xl})});
+  S.forEach(s=>s.cap=['Добавили ещё один «кубик» — ответ стал точнее. После последнего он совсем точный!',`k=${s.k}: ${s.xv?'добавлен вектор x⁽ᵏ⁾=('+s.xv.map(fm).join('; ')+'); ':''}ошибка ${fm(s.err)}.`,`X=Σₖ≤${s.k}αₖx⁽ᵏ⁾; ‖X−x*‖∞=${fm(s.err)}${s.k==n?' ≈ 0: точное решение за n шагов':''}.`]);
+  SL={m,hd,S,xe,n}}
+ else{const A=M0.map(r=>r.slice(0,n)),B=M0.map(r=>r[n]),dom=A.every((r,i)=>Math.abs(r[i])>r.reduce((s,v,j)=>j==i?s:s+Math.abs(v),0));
+  let x=Array(n).fill(0);const er=x=>Math.max(...x.map((v,i)=>Math.abs(v-xe[i])));S.push({k:0,x:x.slice(),dx:0,err:er(x)});
+  for(let k=1;k<=(m=='desc'?600:80);k++){const nx=x.slice();
+   for(let i=0;i<n;i++){let s=B[i];for(let j=0;j<n;j++)if(j!=i)s-=A[i][j]*(m=='jac'?x[j]:nx[j]);nx[i]=s/A[i][i]}
+   if(m=='desc'){const r=B.map((b,i)=>b-A[i].reduce((s,a,j)=>s+a*x[j],0)),g=A[0].map((_,j)=>A.reduce((s,row,i)=>s+row[j]*r[i],0)),Ag=mv(A,g),al=g.reduce((s,v)=>s+v*v,0)/Ag.reduce((s,v)=>s+v*v,0);g.forEach((v,j)=>nx[j]=x[j]+al*v)}
+   const dx=Math.max(...nx.map((v,i)=>Math.abs(v-x[i])));x=nx;S.push({k,x:x.slice(),dx,err:er(x)});if(dx<eps||!isFinite(dx)||dx>1e12)break}
+  S.forEach(s=>s.cap=['Поправили ответ — стало ближе! Смотри, как падает ошибка на графике.',`k=${s.k}: максимальное изменение ${fm(s.dx)}, ошибка ${fm(s.err)}.`,`‖x⁽ᵏ⁾−x⁽ᵏ⁻¹⁾‖∞=${fm(s.dx)}, ‖x⁽ᵏ⁾−x*‖∞=${fm(s.err)}; диагональное преобладание: ${dom?'да ⇒ сходимость гарантирована':'нет (сходимость не гарантирована)'}.`]);
+  SL={m,hd,S,xe,n,eps}}
+ ST.s.set(S.length,md==0?1:md)}
+function slaeDraw(i){
+ const q=SL;if(!q.S)return;const s=q.S[i];$('#s_cap').textContent=s.cap[L];
+ if(q.m=='gauss'){$('#s_o').innerHTML=tbl(q.hd,s.M,s.k)+(s.fin?'<div class="res">x = ('+q.xe.map(fm).join('; ')+')</div>':'');return}
+ const ys=q.S.map(p=>Math.log10(Math.max(p.err,1e-16))),v=view($('#s_c'),[0,Math.max(q.S.length-1,1)],[],{ys,z:false});
+ poly({...v,xr:[0,0]},[],0,0);const g=v.g;g.beginPath();g.strokeStyle=C('--a');g.lineWidth=2.5;ys.slice(0,i+1).forEach((y,k)=>k?g.lineTo(v.X(k),v.Y(y)):g.moveTo(v.X(k),v.Y(y)));g.stroke();ys.slice(0,i+1).forEach((y,k)=>dot(v,k,y,k==i?C('--a2'):C('--a'),k==i?5:2.5));
+ g.fillStyle=C('--m');g.textAlign='left';g.fillText('log₁₀(ошибка) по шагам k',48,16);
+ $('#s_o').innerHTML=tbl(['k',...q.hd.slice(0,-1),'Δ','ошибка'],q.S.slice(0,i+1).map(p=>[p.k,...p.x,p.dx,p.err]),i)+'<div class="res">x ≈ ('+s.x.map(fm).join('; ')+') · точное решение ('+q.xe.map(fm).join('; ')+')</div>'}
+/* ---------- вкладка «Собственные числа» ---------- */
+const mm=(A,B)=>A.map(r=>B[0].map((_,j)=>r.reduce((s,v,k)=>s+v*B[k][j],0))),mv=(A,v)=>A.map(r=>r.reduce((s,a,j)=>s+a*v[j],0)),trc=A=>A.reduce((s,r,i)=>s+r[i],0);
+const cm=(a,b)=>[a[0]*b[0]-a[1]*b[1],a[0]*b[1]+a[1]*b[0]],cd=(a,b)=>{const d=b[0]*b[0]+b[1]*b[1];return[(a[0]*b[0]+a[1]*b[1])/d,(a[1]*b[0]-a[0]*b[1])/d]};
+function roots(c){const n=c.length-1,R=1+Math.max(...c.slice(1).map(Math.abs)),pv=z=>c.reduce((s,k)=>{const t=cm(s,z);return[t[0]+k,t[1]]},[0,0]);
+ let z=Array.from({length:n},(_,k)=>[R*Math.cos(2*Math.PI*k/n+.5),R*Math.sin(2*Math.PI*k/n+.5)]);
+ for(let it=0;it<400;it++)z=z.map((zi,i)=>{let d=[1,0];z.forEach((zj,j)=>{if(j!=i)d=cm(d,[zi[0]-zj[0],zi[1]-zj[1]])});const q=cd(pv(zi),d);return[zi[0]-q[0],zi[1]-q[1]]});return z}
+const sup=d=>'⁰¹²³⁴⁵'[d];
+const ps=c=>c.map((k,i)=>{const d=c.length-1-i;if(Math.abs(k)<1e-9)return'';const a=Math.abs(k);return(i?(k<0?' − ':' + '):(k<0?'−':''))+(a==1&&d?'':fm(a))+(d?'λ'+(d>1?sup(d):''):'')}).join('');
+let EG={};
+function eigRun(md){
+ const o=$('#e_o'),m=V('e_m'),A=parseM(V('e_a')),n=A.length;ex('e',m);EG={};
+ if(n<2||n>5||!A.every(r=>r.length==n&&r.every(isFinite))){o.textContent='Нужна квадратная матрица от 2×2 до 5×5.';ST.e.set(1,0);return}
+ let Ak=A;const S=[],Pk=[];
+ for(let k=1;k<=n;k++){S.push(trc(Ak));let s=S[k-1];for(let i=1;i<k;i++)s-=S[k-1-i]*Pk[i-1];Pk.push(s/k);Ak=mm(Ak,A)}
+ const c=[1,...Pk.map(p=>-p)],rt=roots(c),fz=z=>Math.abs(z[1])<1e-6?fm(z[0]):fm(z[0])+(z[1]<0?' − ':' + ')+fm(Math.abs(z[1]))+'i',
+  info=`Характеристический многочлен: ${ps(c)}<br>Все корни: ${rt.map(fz).join(' ; ')}`;
+ if(m=='lev'){EG={m,rt,S,Pk,info,len:n};ST.e.set(n,md==0?1:md);return}
+ if(m=='kry'){let Y,q;for(const y0 of[Array.from({length:n},(_,i)=>+(i%2==0)),Array(n).fill(1)]){Y=[y0];for(let k=1;k<=n;k++)Y.push(mv(A,Y[k-1]));
+   q=solveG(Array.from({length:n},(_,r)=>[...Array.from({length:n},(_,j)=>Y[n-1-j][r]),Y[n][r]]));if(q.every(isFinite))break}
+  if(!q.every(isFinite)){o.textContent='Система для qⱼ вырождена — выбери другой метод.';ST.e.set(1,0);return}
+  const cc=[1,...q.map(v=>-v)],rk=roots(cc),vec=rk.filter(z=>Math.abs(z[1])<1e-6).map(z=>{const l=z[0],x=Y[n-1].slice();let b=1;for(let j=1;j<n;j++){b=l*b-q[j-1];Y[n-1-j].forEach((v,r)=>x[r]+=b*v)}const nm=Math.hypot(...x);return[l,x.map(v=>v/nm)]});
+  EG={m,rt:rk,Y,info:`Характеристический многочлен: ${ps(cc)}<br>Корни: ${rk.map(fz).join(' ; ')}<br>Собственные векторы (нормированные): `+vec.map(([l,x])=>`λ=${fm(l)}: (${x.map(fm).join('; ')})`).join(' · ')};ST.e.set(n,md==0?1:md);return}
+ let v=Array(n).fill(1),pl=0;const W=[];
+ for(let k=1;k<=60;k++){const y=mv(A,v);let j=0;v.forEach((t,i)=>{if(Math.abs(t)>Math.abs(v[j]))j=i});const lam=y[j]/v[j],nr=Math.hypot(...y);if(!nr)break;v=y.map(t=>t/nr);W.push({k,lam,v:v.slice()});if(k>2&&Math.abs(lam-pl)<1e-8)break;pl=lam}
+ EG={m,W,rt,info,len:W.length};ST.e.set(W.length,md==0?1:md)}
+function eigDraw(i){
+ const q=EG;if(!q.m){return}const cv=$('#e_c'),o=$('#e_o');
+ if(q.m=='kry'){const R=Math.max(1,...q.rt.map(z=>Math.max(Math.abs(z[0]),Math.abs(z[1]))))*1.3,v=view(cv,[-R,R],[],{ys:[-R,R]});q.rt.forEach(z=>dot(v,z[0],z[1],C('--a2'),6));
+  $('#e_cap').textContent=['Толкаем стрелочку матрицей снова и снова — смотрим, как стрелочки связаны.',`y⁽${i+1}⁾=A·y⁽${i}⁾=(${q.Y[i+1].map(fm).join('; ')})`,`y⁽${i+1}⁾=A·y⁽${i}⁾; после n шагов решаем систему для qⱼ и находим корни D(λ).`][L];
+  o.innerHTML=tbl(['k',...q.Y[0].map((_,j)=>'y'+(j+1))],q.Y.slice(0,i+2).map((y,k)=>[k,...y]),i+1)+'<div class="res">'+q.info+'</div>';return}
+ if(q.m=='lev'){const R=Math.max(1,...q.rt.map(z=>Math.max(Math.abs(z[0]),Math.abs(z[1]))))*1.3,v=view(cv,[-R,R],[],{ys:[-R,R]});
+  q.rt.forEach(z=>{dot(v,z[0],z[1],C('--a2'),6);v.g.fillStyle=C('--t');v.g.textAlign='left';v.g.fillText(fm(z[0])+(Math.abs(z[1])>1e-6?(z[1]<0?'−':'+')+fm(Math.abs(z[1]))+'i':''),v.X(z[0])+8,v.Y(z[1])-8)});
+  v.g.fillStyle=C('--m');v.g.fillText('собственные значения на комплексной плоскости',48,16);
+  $('#e_cap').textContent=['Нашли «ключ» к матрице — его корни и есть ответы.',`k=${i+1}: S_${i+1}=tr(A^${i+1})=${fm(q.S[i])}, P_${i+1}=${fm(q.Pk[i])}.`,`S_${i+1}=${fm(q.S[i])}; P_${i+1}=(S_${i+1}−Σ S_{${i+1}−j}P_j)/${i+1}=${fm(q.Pk[i])}.`][L];
+  o.innerHTML=tbl(['k','Sₖ=trAᵏ','Pₖ'],q.S.slice(0,i+1).map((s,k)=>[k+1,s,q.Pk[k]]),i)+'<div class="res">'+q.info+'</div>';return}
+ const ys=q.W.map(w=>w.lam),fin=ys[ys.length-1],v=view(cv,[1,Math.max(q.W.length,2)],[],{ys:ys.concat([fin]),z:false}),g=v.g;
+ seg(v,1,fin,Math.max(q.W.length,2),fin,C('--a2'),1.2,[5,4]);g.beginPath();g.strokeStyle=C('--a');g.lineWidth=2.5;ys.slice(0,i+1).forEach((y,k)=>k?g.lineTo(v.X(k+1),v.Y(y)):g.moveTo(v.X(1),v.Y(y)));g.stroke();ys.slice(0,i+1).forEach((y,k)=>dot(v,k+1,y,k==i?C('--a2'):C('--a'),k==i?5:2.5));
+ g.fillStyle=C('--m');g.textAlign='left';g.fillText('оценка λ₁ по шагам (пунктир — предел)',48,16);const w=q.W[i];
+ $('#e_cap').textContent=['Умножили ещё раз — вектор повернулся к главному направлению, а число стало точнее!',`k=${w.k}: λ≈${fm(w.lam)}, вектор ≈ (${w.v.map(fm).join('; ')}).`,`λ₁⁽${w.k}⁾=yⱼ/vⱼ=${fm(w.lam)}; ‖v‖₂=1, v=(${w.v.map(fm).join('; ')}).`][L];
+ o.innerHTML=tbl(['k','λ',...w.v.map((_,j)=>'v'+(j+1))],q.W.slice(0,i+1).map(r=>[r.k,r.lam,...r.v]),i)+'<div class="res">λ₁ ≈ '+fm(w.lam)+'</div>'+q.info}
+/* ---------- равные шаги: Гаусс, Стирлинг, Бессель ---------- */
+const TB2='0.0 -17.23\n0.2 -16.32\n0.4 -16.42\n0.6 -16.15\n0.8 -15.88\n1.0 -15.46\n1.2 -15.05\n1.4 -14.55\n1.6 -14.00';
+function eqRun(md){
+ const o=$('#i_o'),m=V('i_m'),xv=+V('i_x');
+ const P=V('i_p').trim().split('\n').map(l=>l.trim().split(/[\s;,]+/).map(Number)).filter(r=>r.length>1&&r.every(isFinite)).sort((p,q)=>p[0]-q[0]),xs=P.map(p=>p[0]),ys=P.map(p=>p[1]),n=xs.length,h=(xs[n-1]-xs[0])/(n-1);IP={};
+ if(n<3||xs.some((x,i)=>Math.abs(x-xs[0]-i*h)>1e-9*Math.max(1,Math.abs(h)))){
+  if(/^0\.1 0\.6815/.test(V('i_p'))){$('#i_p').value=TB2;$('#i_x').value='0.5';return eqRun(md)}
+  o.textContent='Для этих формул нужны равноотстоящие узлы (не меньше 3).';ST.i.set(1,0);return}
+ const d=[ys.slice()];for(let j=1;j<n;j++)d[j]=d[j-1].slice(1).map((v,i)=>d[j-1][i+1]-d[j-1][i]);
+ const fl=Math.floor((xv-xs[0])/h+1e-9),mid=Math.min(n-1,Math.max(0,m=='be'?Math.min(n-2,fl):m=='gm'?Math.ceil((xv-xs[0])/h-1e-9):m=='gp'?fl:Math.round((xv-xs[0])/h))),x0=xs[mid];
+ const c=s=>(s%2?1:-1)*Math.ceil(s/2),fa=j=>{let r=1;for(let i=2;i<=j;i++)r*=i;return r},Dd=(j,i)=>((d[j]||[])[mid+i])??NaN;
+ const term=(j,t)=>{let p=1,v;
+  if(m=='gp'||m=='gm'){const g=m=='gp'?1:-1;for(let s=0;s<j;s++)p*=t-g*c(s);v=Dd(j,m=='gp'?-(j>>1):-Math.ceil(j/2))}
+  else if(m=='st'){const k=j>>1;if(j%2){for(let i=1;i<=k;i++)p*=t*t-i*i;p*=t;v=(Dd(j,-k-1)+Dd(j,-k))/2}else{if(k){p=t*t;for(let i=1;i<k;i++)p*=t*t-i*i}v=Dd(j,-k)}}
+  else{const k=j>>1;for(let i=1-k;i<=k;i++)p*=t-i;if(j%2){p*=t-.5;v=Dd(j,-k)}else v=(Dd(j,-k)+Dd(j,1-k))/2}
+  return p/fa(j)*v};
+ const tv=(xv-x0)/h;let K=0;while(K<n&&isFinite(term(K,tv)))K++;
+ const pt=(k,x)=>{const t=(x-x0)/h;let s=0;for(let j=0;j<=k;j++)s+=term(j,t);return s},sp=xs[n-1]-xs[0];
+ if(K<1){o.textContent='Точка x* вне таблицы.';ST.i.set(1,0);return}
+ IP={n:K,xs,ys,m,xv,nw:pt,xr:[xs[0]-sp*.08,xs[n-1]+sp*.08]};
+ const wr=m=='be'&&(tv<.2||tv>.8)?' · Бессель точнее при 0,25≤t≤0,75':m=='st'&&Math.abs(tv)>.6?' · Стирлинг точнее при |t|≲0,5':'';
+ o.innerHTML=tbl(['xₖ','f',...d.slice(1).map((_,j)=>'Δ'+(j+1)+'f')],xs.map((x,i)=>[x,...d.map(c=>c[i]===undefined?'':c[i])]))+`<div class="res">P(${fm(xv)}) ≈ ${fm(pt(K-1,xv))} · x₀=${fm(x0)}, h=${fm(h)}, t=${fm(tv)}, членов: ${K}${wr}</div>`;ST.i.set(K,md==0?1:md)}
+/* ---------- теория погрешностей ---------- */
+let ER={};
+function errRun(md){
+ ex('p','err');let h='';const a=+V('p_a'),da=+V('p_d');
+ if(a&&da>0){const k=Math.floor(Math.log10(Math.abs(a)))+1,dg=w=>Math.max(0,Math.floor(k-Math.log10(da/w)+1e-9));h+=`<div class="res">a = ${V('p_a')} ± ${V('p_d')} · δ(a) = ${fm(da/Math.abs(a)*100)} % · верных цифр: ${dg(1)} (ω=1), ${dg(.5)} (ω=0,5) · округлённо: ${+a.toPrecision(Math.max(1,dg(1)))}</div>`}
+ let f;try{f=mk(V('p_f'))}catch(e){h+='Ошибка в функции: '+e.message}
+ if(f){const x=+V('p_x'),dx=+V('p_dx'),y=f(x),dy=Math.abs(D1(f,x))*dx,w=+V('p_dy');h+=`<div class="res">y=f(x)=${fm(y)} · прямая задача: Δy≈|f′(x)|·Δx=${fm(dy)}, δy=${fm(dy/Math.abs(y)*100)} % · обратная: для Δy=${fm(w)} нужно Δx≈${fm(w/Math.abs(D1(f,x)))}</div>`}
+ const N=Math.max(10,Math.min(1e6,+V('p_n')||1e5)),cp=[...new Set(Array.from({length:13},(_,i)=>Math.round(N**(i/12))))],F=Math.fround,rows=[];let sf=0,sd=0,k=0;
+ cp.forEach(n=>{while(k<n){k++;sf=F(sf+F(1/F(k*k)));sd+=1/(k*k)}let sb=0;for(let j=n;j>=1;j--)sb=F(sb+F(1/F(j*j)));rows.push([n,sf,sb,Math.abs(sf-sd),Math.abs(sb-sd)])});
+ ER={rows,h};ST.p.set(rows.length,md==0?1:md)}
+function errDraw(i){
+ const q=ER;if(!q.rows)return;const lg=v=>Math.log10(v+1e-12),v=view($('#p_c'),[0,q.rows.length-1],[],{ys:q.rows.flatMap(r=>[lg(r[3]),lg(r[4])]),z:false}),g=v.g;
+ [[3,'--a2'],[4,'--a']].forEach(([c,col])=>{g.beginPath();g.strokeStyle=C(col);g.lineWidth=2.5;q.rows.slice(0,i+1).forEach((r,k)=>k?g.lineTo(v.X(k),v.Y(lg(r[c]))):g.moveTo(v.X(k),v.Y(lg(r[c]))));g.stroke()});
+ g.textAlign='left';g.fillStyle=C('--a2');g.fillText('Σ1/k² «вперёд» (float32): log₁₀ ошибки',48,16);g.fillStyle=C('--a');g.fillText('«назад», от малых к большим',48,30);
+ const r=q.rows[i];$('#p_cap').textContent=[`Сложили ${fm(r[0])} маленьких кусочков двумя способами. Какой способ ошибается сильнее?`,`n=${fm(r[0])}: «вперёд» ошибка ${fm(r[3])}, «назад» ${fm(r[4])}.`,`n=${fm(r[0])}: Δ_вперёд=${fm(r[3])} (накопление ≈n·t, t≈2⁻²⁴), Δ_назад=${fm(r[4])}.`][L];
+ $('#p_o').innerHTML=q.h+tbl(['n','Σ вперёд','Σ назад','ошибка вперёд','ошибка назад'],q.rows.slice(0,i+1),i)}
+/* ---------- сборка интерфейса ---------- */
+const inp=(id,l,v,c='')=>`<label>${l}<input id="${id}" value="${v}" class="${c}"></label>`,sel=(id,l,o)=>`<label>${l}<select id="${id}">${o.map(([v,t])=>`<option value="${v}">${t}</option>`).join('')}</select></label>`,ta=(id,l,v)=>`<label>${l}<textarea id="${id}" spellcheck="false">${v}</textarea></label>`;
+const sec=(id,p,ctl)=>`<section class="sec" id="${id}"><div class="ctl">${ctl}</div><canvas id="${p}_c"></canvas><div class="st" id="${p}_s"></div><div class="cap" id="${p}_cap"></div><div class="out" id="${p}_o"></div><div class="ex" id="${p}_x"></div></section>`;
+const TABS=[['err','p','Погрешности'],['roots','r','Корни уравнений'],['interp','i','Интерполяция'],['integ','n','Интегрирование'],['slae','s','Системы уравнений'],['eig','e','Собственные числа']];
+$('#app').innerHTML=sec('err','p',inp('p_a','приближённое a','3.14')+inp('p_d','Δ(a)','0.0016')+inp('p_f','f(x)','x^2*sin(x)','w')+inp('p_x','x','1.2')+inp('p_dx','Δx','0.001')+inp('p_dy','нужное Δy','0.0005')+inp('p_n','n для суммы','100000'))+
+ sec('roots','r',inp('r_f','f(x) — из методички, тема 4','x^4-x^3-2*x^2+3*x-3','w')+inp('r_a','a','1')+inp('r_b','b','2')+inp('r_e','ε','0.001')+sel('r_m','метод',[['bis','Бисекция'],['chord','Хорд'],['newton','Ньютона'],['comb','Комбинированный'],['iter','Итераций (φ)'],['lob','Лобачевский (коэффициенты в поле f)']]))+
+ sec('interp','i',ta('i_p','Точки (x y), таблица 3 из методички','0.1 0.6815\n0.2 0.6921\n0.4 0.9978\n0.7 0.6814\n0.8 0.7697')+inp('i_x','x*','0.3')+sel('i_m','метод',[['lag','Лагранж'],['newt','Ньютон (разд. разности)'],['aitk','Эйткен'],['gp','Гаусс вперёд (равные шаги)'],['gm','Гаусс назад (равные шаги)'],['st','Стирлинг (равные шаги)'],['be','Бессель (равные шаги)']])+'<label>клик по графику добавляет точку</label>')+
+ sec('integ','n',inp('n_f','f(x) — пример темы 3','1/(1+x)','w')+inp('n_a','a','0')+inp('n_b','b','0.6')+inp('n_n','число частей','6')+sel('n_m','метод',[['rect','Прямоугольники'],['trap','Трапеции'],['simp','Симпсон'],['n38','Ньютон 3/8'],['gau','Гаусс, 3 узла'],['cheb','Чебышев, 5 узлов']]))+
+ sec('slae','s',ta('s_a','Матрица [A | b], пример темы 5','0.68 0.05 -0.11 0.08 2.15\n0.11 -0.84 -0.28 -0.06 0.83\n0.08 -0.15 -1 0.12 -1.14\n0.21 -0.13 0.27 1 0.44')+inp('s_e','ε','0.0001')+sel('s_m','метод',[['gauss','Гаусса'],['jac','Итераций (Якоби)'],['seid','Зейделя'],['ortho','Ортогонализации'],['desc','Скорейшего спуска']]))+
+ sec('eig','e',ta('e_a','Матрица A, пример темы 6','1 0 -2\n2 3 -1\n0 0 2')+sel('e_m','метод',[['power','Степенной'],['lev','Леверрье'],['kry','Крылова']]));
+const ST={r:Stepper($('#r_s'),rootsDraw),i:Stepper($('#i_s'),interpDraw),n:Stepper($('#n_s'),integDraw),s:Stepper($('#s_s'),slaeDraw),e:Stepper($('#e_s'),eigDraw),p:Stepper($('#p_s'),errDraw)};
+const RUN={roots:rootsRun,interp:interpRun,integ:integRun,slae:slaeRun,eig:eigRun,err:errRun};
+$('#tabs').innerHTML=TABS.map(t=>`<button data-t="${t[0]}">${t[2]}</button>`).join('');
+function show(id){cur=id;$$('#tabs button').forEach(b=>b.classList.toggle('on',b.dataset.t==id));$$('.sec').forEach(s=>s.classList.toggle('on',s.id==id));RUN[id](0)}
+$('#tabs').onclick=e=>{if(e.target.dataset.t)show(e.target.dataset.t)};
+$('#lv').onclick=e=>{if(e.target.dataset.l===undefined)return;L=+e.target.dataset.l;$$('#lv button').forEach(b=>b.classList.toggle('on',b==e.target));RUN[cur](2)};
+$('#app').addEventListener('input',()=>RUN[cur](0));
+$('#i_c').onclick=e=>{const v=e.target._v;if(!v||!IP.n)return;const r=e.target.getBoundingClientRect(),x=v.ix(e.clientX-r.left),y=v.iy(e.clientY-r.top);$('#i_p').value+='\n'+x.toFixed(3)+' '+y.toFixed(3);interpRun(0)};
+addEventListener('resize',()=>RUN[cur](2));
+show('roots');
+</script></body></html>
